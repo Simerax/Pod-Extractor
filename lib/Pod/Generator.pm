@@ -192,6 +192,10 @@ sub _write_file {
 
 Pod::Generator - A Module to extract Pod Documentation from Perl sourcecode.
 
+=head1 VERSION
+
+Version 0.50
+
 =head1 SYNOPSIS
 
     use Pod::Generator;
