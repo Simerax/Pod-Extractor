@@ -1,3 +1,9 @@
+# DISCLAIMER
+
+It looks like there are actually people downloading this. Please be aware that this is only a Prototype right now!
+There has been almost zero testing so far!
+
+
 # NAME
 
 Pod::Generator - A Module to extract Pod Documentation from Perl sourcecode.
