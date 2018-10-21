@@ -1,20 +1,95 @@
 
+=head1 NAME
+
+Pod::Generator - A Module to extract Pod Documentation from Perl sourcecode.
+
+=head1 VERSION
+
+Version 0.52
+
+=head1 SYNOPSIS
+
+    use Pod::Generator;
+    my $podder = Pod::Generator->new({
+        root => 'lib',
+        target => 'docs',
+    });
+    my ($ok, $err) = $podder->run();
+    if (!$ok) {
+        print "ERROR: $err\n";
+    }
+
+=head1 DESCRIPTION
+
+This Module is for extracting Pod Documentation from Perl Sourcecode recursively and converting it into the desired Format.
+You give it a entry point on your filesystem and it will extract and parse all POD from every *.pm and *.pl file and dump them in your specific target folder
+
+=head2 Functions
+
+=cut
 
 package Pod::Generator;
 
-our $VERSION = '0.51';
+our $VERSION = '0.52';
 
 use warnings;
 use strict;
 
+use vars qw(@ISA %EXPORT_TAGS);
+
+
+BEGIN {
+	require Exporter;
+	@ISA = qw(Exporter);
+
+	%EXPORT_TAGS = (
+		PARSER_TAGS => [
+			qw(
+			  PARSER_FILE
+			  PARSER_FILE_CONTENT
+			  )
+		]
+	);
+
+	Exporter::export_ok_tags(
+		qw(
+		  PARSER_TAGS
+		  )
+	);
+}
+
+use constant {
+	PARSER_FILE => 0,
+	PARSER_FILE_CONTENT => 1,
+};
+
 use File::Basename;
 use File::Path;
 use File::Find::Rule;
+use Pod::Generator::Helper qw(ret);
 use Carp qw (carp croak);
 
-my $ret = sub {
-	return wantarray? @_ : shift;
-};
+
+=head3 C<new($class, $args)>
+
+Function to initalize a C<Pod::Generator> instance.
+C<$args> is a hash reference. You can specify every Attribute right here or use the appropriate setter afterwards.
+
+    my $generator = Pod::Generator->new({
+        root => './lib',    # the directory in which the search should begin
+		# root => [qw( libA libB )], # root can also be an array reference
+        target => 'docs',   # the directory in which the parsed Documents should be stored
+        overwrite => 1,     # Overwrite file in 'target' if it already exist. Will default to 0 if not given
+        parser => sub {     # give it a custom Parser. You dont need to do this, the default parsing is done with Pod::Simple::HTML
+            my ($file) = @_;
+
+            # ... open $file and parse it the way you want
+
+            return ($parsed, '.html'); # Return the parsed content and an optional suffix the File should get
+        },
+    });
+
+=cut
 
 
 sub new {
@@ -30,12 +105,25 @@ sub new {
 	return $self;
 }
 
+=head3 C<root($self, $folder)>
+
+Method to set/get the root Folder of the pod Extraction.
+
+=cut
+
 
 sub root {
 	my $self = shift;
 	$self->{'root'} = shift if (@_);
 	$self->{'root'};
 }
+
+=head3 C<target($self, $folder)>
+
+Method to set/get the target Folder of the pod Extraction.
+Appends '/' to the target in case it doesnt have it already
+
+=cut
 
 
 sub target {
@@ -47,6 +135,16 @@ sub target {
 	$self->{'target'};
 }
 
+=head3 C<overwrite($self, $bool)>
+
+Method to set/get the overwrite Attribute.
+This will cause the Extraction to overwrite files in C<target> if they exist.
+Default is 0 (false).
+
+Every true Value is considered C<overwrite == true>
+
+=cut
+
 
 sub overwrite {
 	my $self = shift;
@@ -56,6 +154,26 @@ sub overwrite {
 	$self->{'overwrite'} = 0 unless (defined $self->{'overwrite'});
 	$self->{'overwrite'};
 }
+
+=head3 C<parser($self, $parser)>
+
+Method to set/get the Parser for the Pod Extraction.
+Expects a Code Reference.
+
+This Function gives you C<$file> which is the filepath of the file to parse.
+It expects you to return the parsed content and optionaly the file suffix it should use.
+If you don't supply a suffix the files will be created without any suffix.
+If you can you should supply a suffix, on most Systems files with a suffix like C<.html> or C<.pdf> will be opened with a default application.
+
+    $self->parser(sub {
+        my ($file, $content) = @_;
+
+        #... open $file and parse it into $parsed
+
+        return ($parsed, '.html');
+    });
+
+=cut
 
 
 sub parser {
@@ -93,220 +211,6 @@ sub _default_parser {
 	};
 }
 
-
-sub run {
-	my ($self) = @_;
-
-	my ($ok, $err, $files) = $self->_find_files();
-	if (!$ok) {
-		return $ret->(0, $err);
-	}
-
-	$self->target('./docs') unless (defined $self->target());
-
-	foreach(@$files) {
-		my ($content, $filetype) = $self->parser()->($_);
-		$filetype = '' unless (defined $filetype);
-
-		my ($name, $path, $suffix) = fileparse($_);
-		$name = _get_basename($name) unless $suffix; # fileparse doesnt really get the right basname (suffix is still present)
-
-		my $root = $self->root();
-		$path =~ s/^\Q$root\E//;
-
-		my $target_dir = $self->target().$path;
-		my $target_file = $target_dir.'/'.$name.$filetype;
-
-		next if (-f $target_file && !$self->overwrite());
-
-		if (!-d $target_dir) {
-			my ($ok, $err) = $self->_create_dir($target_dir) unless (-d $target_dir);
-			if (!$ok) {
-				carp $err;
-				next;
-			}
-		}
-
-		my ($ok, $err) = $self->_write_file($target_file, $content);
-		if (!$ok) {
-			carp $err;
-			next;
-		}
-
-	}
-	$ret->(1, '');
-}
-
-
-# _find_files
-#	returns a list of all files found in $self->root()
-#
-# Returns 0 on failure and 1 on success
-# in list context it also gives you an error message and the files it found.
-# So basically you should never call it in scalar context ;)
-#
-#	my ($ok, $err, $files) = $self->_find_files();
-#	if ($ok) {
-#		print "FOUND: $_\n" foreach(@$files);
-#	}
-#
-#
-sub _find_files {
-	my ($self) = @_;
-
-	my ($ok, $err, $type) = $self->_check_root();
-	return $ret->(0, $err, undef) if (!$ok);
-
-	my $finder = File::Find::Rule->new();
-	$finder->file()->name('*.pm', '*.pl')->canonpath();
-
-	my @files;
-	if ($type eq '') {
-		@files = $finder->in($self->root());
-	}
-	elsif ($type eq 'ARRAY') {
-		@files = $finder->in(@{$self->root()});
-	} else { # since we do _check_root() we should never get here but oh well you never know
-		croak "Type '$type' not supported as root folder!";
-	}
-	return $ret->(1, '', \@files);
-}
-
-# _create_dir
-#   Create given $dir
-#
-# Returns 0 on Failure and 1 on Success
-# In listcontext it also returns an errorstring
-#
-#   my ($ok, $err) = $self->_create_dir('test');
-#
-sub _create_dir {
-	my ($self, $dir) = @_;
-
-	return $ret->(1, 'Directory already exists') if -d $dir;
-
-	my ($raw_err, $err_string);
-	File::Path::make_path($dir, { error => \$raw_err });
-
-	foreach my $diag (@$raw_err) {
-		my ($object, $msg) = %$diag;
-		$err_string .= $object eq '' ? "General Error: $msg\n" : "Problem on $object - $msg\n";
-	}
-
-	if($err_string) {
-		return $ret->(0, $err_string);
-	} else {
-		return $ret->(1, 'No Error');
-	}
-}
-
-
-sub _get_basename {
-	my ($name) = @_;
-	$name =~ s/\.[^\.]*$//;
-	$name;
-}
-
-
-sub _write_file {
-	my ($self, $file, $content) = @_;
-
-	my $fh;
-	return $ret->(0, $!) unless open($fh, '>', $file);
-	print $fh "$content";
-	close($fh);
-
-	$ret->(1, 'No Error');
-}
-
-
-# _check_root
-#	Checks the type of $self->root()
-#
-# Returns 0 on failure and 1 on success
-# in list context it also gives you an error message and the type of root
-#
-# 	my ($ok, $err, $type) = $self->_check_root();
-# 	if ($ok && $type eq 'ARRAY') {
-#		print "root is an array reference!";
-#	} 
-#
-sub _check_root {
-	my ($self) = @_;
-
-	my $check = sub {
-		my $f = shift;
-		if (!-d $f) {
-			carp "Root Folder '$f' does not exist!";
-		}
-	};
-
-	return $ret->(0, 'Root not specified') unless defined $self->root();
-
-	my $type = ref($self->root());
-
-	if ($type eq '') {
-		$check->($self->root());
-		return $ret->(1, '', $type);
-	}elsif ($type eq 'ARRAY') {
-		$check->($_) foreach(@{$self->root()});
-		return $ret->(1, '', $type);
-	} else {
-		my $err = "Type $type is not supported as 'root' directory!";
-		carp $err;
-		return $ret->(0, $err, undef);
-	}
-}
-
-
-=head1 NAME
-
-Pod::Generator - A Module to extract Pod Documentation from Perl sourcecode.
-
-=head1 VERSION
-
-Version 0.51
-
-=head1 SYNOPSIS
-
-    use Pod::Generator;
-    my $podder = Pod::Generator->new({
-        root => 'lib',
-        target => 'docs',
-    });
-    my ($ok, $err) = $podder->run();
-    if (!$ok) {
-        print "ERROR: $err\n";
-    }
-
-=head1 DESCRIPTION
-
-This Module is for extracting Pod Documentation from Perl Sourcecode recursively and converting it into the desired Format.
-You give it a entry point on your filesystem and it will extract and parse all POD from every *.pm and *.pl file and dump them in your specific target folder
-
-=head2 Functions
-
-
-=head3 C<new($class, $args)>
-
-Function to initalize a C<Pod::Generator> instance.
-C<$args> is a hash reference. You can specify every Attribute right here or use the appropriate setter afterwards.
-
-    my $generator = Pod::Generator->new({
-        root => './lib',    # the directory in which the search should begin
-		# root => [qw( libA libB )], # root can also be an array reference
-        target => 'docs',   # the directory in which the parsed Documents should be stored
-        overwrite => 1,     # Overwrite file in 'target' if it already exist. Will default to 0 if not given
-        parser => sub {     # give it a custom Parser. You dont need to do this, the default parsing is done with Pod::Simple::HTML
-            my ($file) = @_;
-
-            # ... open $file and parse it the way you want
-
-            return ($parsed, '.html'); # Return the parsed content and an optional suffix the File should get
-        },
-    });
-
-
 =head3 C<run($self)>
 
 Starts the Extraction.
@@ -319,45 +223,168 @@ If called in List Context, it will also give you an error message as second retu
     my ($ok, $err) = $podder->run();
     print "ERROR: $err" if (!$ok);
 
-=head3 C<root($self, $folder)>
+=cut
 
-Method to set/get the root Folder of the pod Extraction.
 
-=head3 C<target($self, $folder)>
+sub run {
+	my ($self) = @_;
 
-Method to set/get the target Folder of the pod Extraction.
-Appends '/' to the target in case it doesnt have it already
+	my ($ok, $err, $files) = $self->_find_files();
+	if (!$ok) {
+		return ret(0, $err);
+	}
 
-=head3 C<overwrite($self, $bool)>
+	$self->target('./docs') unless (defined $self->target());
 
-Method to set/get the overwrite Attribute.
-This will cause the Extraction to overwrite files in C<target> if they exist.
-Default is 0 (false).
+	foreach my $file (@$files) {
+		my ($ok, $err, $fileContent) = Pod::Generator::Helper::read_file($file);
+		if (!$ok) {
+			carp $err;
+			next;
+		}
 
-Every true Value is considered C<overwrite == true>
+		my ($content, $filetype) = $self->parser()->($file, $fileContent);
+		$filetype = '' unless (defined $filetype);
 
-=head3 C<parser($self, $parser)>
+		my ($name, $path, $suffix) = fileparse($file);
+		$name = Pod::Generator::Helper::get_basename($name) unless $suffix; # fileparse doesnt really get the right basname (suffix is still present)
 
-Method to set/get the Parser for the Pod Extraction.
-Expects a Code Reference.
+		my $root = $self->root();
+		$path =~ s/^\Q$root\E//;
 
-This Function gives you C<$file> which is the filepath of the file to parse.
-It expects you to return the parsed content and optionaly the file suffix it should use.
-If you don't supply a suffix the files will be created without any suffix.
-If you can you should supply a suffix, on most Systems files with a suffix like C<.html> or C<.pdf> will be opened with a default application.
+		my $target_dir = $self->target().$path;
+		my $target_file = $target_dir.'/'.$name.$filetype;
 
-    $self->parser(sub {
-        my ($file) = @_;
+		next if (-f $target_file && !$self->overwrite());
 
-        #... open $file and parse it into $parsed
+		if (!-d $target_dir) {
+			my ($ok, $err) = Pod::Generator::Helper::create_dir($target_dir);
+			if (!$ok) {
+				carp $err;
+				next;
+			}
+		}
 
-        return ($parsed, '.html');
-    });
+		($ok, $err) = Pod::Generator::Helper::write_file($target_file, $content);
+		if (!$ok) {
+			carp $err;
+			next;
+		}
 
-=head2 C<Default Parser>
+	}
+	ret(1, '');
+}
+
+
+# _find_files
+#	returns a list of all files found in $self->root()
+#
+# Returnvalue:
+#	[Scalar]			$ok		=> 0 on Failure, 1 on success
+#	[Scalar]			$err	=> Error String in case !$ok
+#	[Array Reference]	$files	=> List of all files that were found
+#
+#	my ($ok, $err, $files) = $self->_find_files();
+#	if ($ok) {
+#		print "FOUND: $_\n" foreach(@$files);
+#	}
+#
+#
+sub _find_files {
+	my ($self) = @_;
+
+	my ($ok, $err, $type) = $self->_check_root();
+	return ret(0, $err, undef) if (!$ok);
+
+	my $finder = File::Find::Rule->new();
+	$finder->file()->name('*.pm', '*.pl')->canonpath();
+
+	my @files;
+	if ($type eq '') {
+		@files = $finder->in($self->root());
+	}elsif ($type eq 'ARRAY') {
+		@files = $finder->in(@{$self->root()});
+	} else { # since we do _check_root() we should never get here but oh well you never know
+		croak "Type '$type' not supported as root folder!";
+	}
+	return ret(1, '', \@files);
+}
+
+
+# _check_root
+#	Checks the type of $self->root()
+#
+# Returns 0 on failure and 1 on success
+# in list context it also gives you an error message and the type of root
+#
+# 	my ($ok, $err, $type) = $self->_check_root();
+# 	if ($ok && $type eq 'ARRAY') {
+#		print "root is an array reference!";
+#	}
+#
+sub _check_root {
+	my ($self) = @_;
+
+	my $check = sub {
+		my $f = shift;
+		if (!-d $f) {
+			carp "Root Folder '$f' does not exist!";
+		}
+	};
+
+	return ret(0, 'Root not specified') unless defined $self->root();
+
+	my $type = ref($self->root());
+
+	if ($type eq '') {
+		$check->($self->root());
+		return ret(1, '', $type);
+	}elsif ($type eq 'ARRAY') {
+		$check->($_) foreach(@{$self->root()});
+		return ret(1, '', $type);
+	} else {
+		my $err = "Type $type is not supported as 'root' directory!";
+		carp $err;
+		return ret(0, $err, undef);
+	}
+}
+
+
+=head2 C<More on Parsers>
+
+=head3 C<Default Parser>
 
 In case there is no Parser specified via C<parser> the parsing will fallback to a Default Parser.
 The used default is L<Pod::Simple::HTML>.
+
+=head3 C<Parser Tags>
+
+Since L<Pod::Generator> gives you multiple values for your parsing you can choose which to use via Parser Tags.
+Maybe you only want the Filecontent and not its Path.
+
+	use Pod::Generator qw(:PARSER_TAGS); # also import Parser tags into namespace
+
+	my $generator = Pod::Generator->new({
+		root => 'lib',
+		target => 'docs',
+		parser => sub {
+			my $fileContent = @_[PARSER_FILE_CONTENT]; # just get file content as parameter
+		}
+	});
+
+The Following Parser Tags are available right now.
+
+=over 2
+
+=item PARSER_FILE
+
+The Filepath of the file that has to be parsed
+
+=item PARSER_FILE_CONTENT
+
+The Content of the file that has to be parsed
+
+=back
 
 =cut
 

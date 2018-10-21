@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 4;
+use Test::More tests => 5;
 use autodie;
 use Pod::Generator;
 
@@ -33,6 +33,9 @@ my $create_file = sub {
 
 my $create_files = sub {
     my ($root_folder, $files, $suffix) = @_;
+
+    $suffix = '.pm' unless defined $suffix;
+
     if (!-d $root_folder) {
         use File::Path;
         File::Path::make_path($root_folder);
@@ -150,6 +153,37 @@ my $remove_folder = sub {
     $remove_folder->($target);
 
 }
+
+{
+    my $root = 'test/source';
+    my $target = 'test/docs';
+    my $files = [qw(A B C)];
+    $create_files->($root, $files);
+
+    no Pod::Generator;
+
+    use Pod::Generator qw(:PARSER_TAGS);
+    
+    my $generator = Pod::Generator->new({
+        root => $root,
+        target => $target,
+        parser => sub {
+            my $file = $_[PARSER_FILE];
+            my $content = $_[PARSER_FILE_CONTENT];
+
+            if (!-f $file || (!defined $content) || ref($content) ne 'ARRAY') {
+                fail("Pod::Generator::run() - parser tags are wrong!");
+            }
+            return($content, '.html');
+        }
+    });
+
+    my ($ok, $err) = $generator->run();
+
+    pass("Pod::Generator::run() - parser tags work");
+}
+
+
 
 
 $remove_folder->('test');
