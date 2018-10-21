@@ -10,7 +10,7 @@ Pod::Generator - A Module to extract Pod Documentation from Perl sourcecode.
 
 # VERSION
 
-Version 0.50
+Version 0.51
 
 # SYNOPSIS
 
@@ -38,6 +38,7 @@ Function to initalize a `Pod::Generator` instance.
 
     my $generator = Pod::Generator->new({
         root => './lib',    # the directory in which the search should begin
+                # root => [qw( libA libB )], # root can also be an array reference
         target => 'docs',   # the directory in which the parsed Documents should be stored
         overwrite => 1,     # Overwrite file in 'target' if it already exist. Will default to 0 if not given
         parser => sub {     # give it a custom Parser. You dont need to do this, the default parsing is done with Pod::Simple::HTML
@@ -78,7 +79,7 @@ Default is 0 (false).
 
 Every true Value is considered `overwrite == true`
 
-### `parser`
+### `parser($self, $parser)`
 
 Method to set/get the Parser for the Pod Extraction.
 Expects a Code Reference.

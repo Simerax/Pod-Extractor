@@ -2,7 +2,7 @@
 
 package Pod::Generator;
 
-our $VERSION = '0.50';
+our $VERSION = '0.51';
 
 use warnings;
 use strict;
@@ -265,7 +265,7 @@ Pod::Generator - A Module to extract Pod Documentation from Perl sourcecode.
 
 =head1 VERSION
 
-Version 0.50
+Version 0.51
 
 =head1 SYNOPSIS
 
