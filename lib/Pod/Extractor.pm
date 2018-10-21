@@ -1,7 +1,7 @@
 
 =head1 NAME
 
-Pod::Generator - A Module to extract Pod Documentation from Perl sourcecode.
+Pod::Extractor - A Module to extract Pod Documentation from Perl sourcecode.
 
 =head1 VERSION
 
@@ -9,8 +9,8 @@ Version 0.52
 
 =head1 SYNOPSIS
 
-    use Pod::Generator;
-    my $podder = Pod::Generator->new({
+    use Pod::Extractor;
+    my $podder = Pod::Extractor->new({
         root => 'lib',
         target => 'docs',
     });
@@ -28,7 +28,7 @@ You give it a entry point on your filesystem and it will extract and parse all P
 
 =cut
 
-package Pod::Generator;
+package Pod::Extractor;
 
 our $VERSION = '0.52';
 
@@ -66,16 +66,16 @@ use constant {
 use File::Basename;
 use File::Path;
 use File::Find::Rule;
-use Pod::Generator::Helper qw(ret);
+use Pod::Extractor::Helper qw(ret);
 use Carp qw (carp croak);
 
 
 =head3 C<new($class, $args)>
 
-Function to initalize a C<Pod::Generator> instance.
+Function to initalize a C<Pod::Extractor> instance.
 C<$args> is a hash reference. You can specify every Attribute right here or use the appropriate setter afterwards.
 
-    my $generator = Pod::Generator->new({
+    my $generator = Pod::Extractor->new({
         root => './lib',    # the directory in which the search should begin
 		# root => [qw( libA libB )], # root can also be an array reference
         target => 'docs',   # the directory in which the parsed Documents should be stored
@@ -237,7 +237,7 @@ sub run {
 	$self->target('./docs') unless (defined $self->target());
 
 	foreach my $file (@$files) {
-		my ($ok, $err, $fileContent) = Pod::Generator::Helper::read_file($file);
+		my ($ok, $err, $fileContent) = Pod::Extractor::Helper::read_file($file);
 		if (!$ok) {
 			carp $err;
 			next;
@@ -249,7 +249,7 @@ sub run {
 		$filetype = '' unless (defined $filetype);
 
 		my ($name, $path, $suffix) = fileparse($file);
-		$name = Pod::Generator::Helper::get_basename($name) unless $suffix; # fileparse doesnt really get the right basname (suffix is still present)
+		$name = Pod::Extractor::Helper::get_basename($name) unless $suffix; # fileparse doesnt really get the right basname (suffix is still present)
 
 		my $root = $self->root();
 		$path =~ s/^\Q$root\E//;
@@ -260,14 +260,14 @@ sub run {
 		next if (-f $target_file && !$self->overwrite());
 
 		if (!-d $target_dir) {
-			my ($ok, $err) = Pod::Generator::Helper::create_dir($target_dir);
+			my ($ok, $err) = Pod::Extractor::Helper::create_dir($target_dir);
 			if (!$ok) {
 				carp $err;
 				next;
 			}
 		}
 
-		($ok, $err) = Pod::Generator::Helper::write_file($target_file, $content);
+		($ok, $err) = Pod::Extractor::Helper::write_file($target_file, $content);
 		if (!$ok) {
 			carp $err;
 			next;
@@ -361,12 +361,12 @@ The used default is L<Pod::Simple::HTML>.
 
 =head3 C<Parser Tags>
 
-Since L<Pod::Generator> gives you multiple values for your parsing you can choose which to use via Parser Tags.
+Since L<Pod::Extractor> gives you multiple values for your parsing you can choose which to use via Parser Tags.
 Maybe you only want the Filecontent and not its Path.
 
-	use Pod::Generator qw(:PARSER_TAGS); # also import Parser tags into namespace
+	use Pod::Extractor qw(:PARSER_TAGS); # also import Parser tags into namespace
 
-	my $generator = Pod::Generator->new({
+	my $generator = Pod::Extractor->new({
 		root => 'lib',
 		target => 'docs',
 		parser => sub {

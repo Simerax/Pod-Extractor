@@ -1,4 +1,4 @@
-package Pod::Generator::Helper;
+package Pod::Extractor::Helper;
 
 use warnings;
 use strict;
@@ -22,16 +22,16 @@ BEGIN {
 
 =head1 NAME
 
-Pod::Generator::Helper - Helper Utilities for Pod::Generator - There is no reason to use this package standalone
+Pod::Extractor::Helper - Helper Utilities for Pod::Extractor - There is no reason to use this package standalone
 
 =head1 SYNOPSIS
 
-    use Pod::Generator::Helper qw(ret);
+    use Pod::Extractor::Helper qw(ret);
 
 =head1 DESCRIPTION
 
-This Package is used by C<Pod::Generator> for all kinds of tasks which are not really connected to it. Such as reading/writing or creating files.
-B<If you want to Extract Pod Documents from Perl Sourcecode you should use >C<Pod::Generator>B< and not this Package here!>
+This Package is used by C<Pod::Extractor> for all kinds of tasks which are not really connected to it. Such as reading/writing or creating files.
+B<If you want to Extract Pod Documents from Perl Sourcecode you should use >C<Pod::Extractor>B< and not this Package here!>
 
 =head2 Functions
 

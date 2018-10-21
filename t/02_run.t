@@ -3,7 +3,7 @@ use warnings;
 
 use Test::More tests => 5;
 use autodie;
-use Pod::Generator;
+use Pod::Extractor;
 
 # UTILITIES TO CREATE TESTS more easily
 my $dummy_pod = <<'END'
@@ -81,13 +81,13 @@ my $remove_folder = sub {
     my $target_folder = 'test/docs_target';
     $create_files->($root_folder, \@files, '.pm');
 
-    my $generator = Pod::Generator->new();
+    my $generator = Pod::Extractor->new();
     $generator->root($root_folder);
     $generator->target($target_folder);
     my ($ok, $err) = $generator->run();
-    ok($ok eq 1 && $err eq '', 'Pod::Generator::run() works');
+    ok($ok eq 1 && $err eq '', 'Pod::Extractor::run() works');
 
-    ok($files_in_target->($target_folder, '.html', \@files) eq 1, 'Pod::Generator::run() - generated files.');
+    ok($files_in_target->($target_folder, '.html', \@files) eq 1, 'Pod::Extractor::run() - generated files.');
 
     $remove_folder->($root_folder);
     $remove_folder->($target_folder);
@@ -105,7 +105,7 @@ my $remove_folder = sub {
     $create_files->($root->[1], $files_root1, '.pm');
 
 
-    my $generator = Pod::Generator->new({
+    my $generator = Pod::Extractor->new({
         root => $root,
         target => $target,
     });
@@ -115,9 +115,9 @@ my $remove_folder = sub {
         $files_in_target->($target.'/'.$root_0, '.html', $files_root0) &&
         $files_in_target->($target.'/'.$root_1, '.html', $files_root1)
     ) {
-        pass('Pod::Generator::run() works with multiple root folders');
+        pass('Pod::Extractor::run() works with multiple root folders');
     } else {
-        fail('Pod::Generator::run() fails when multiple root folders are used');
+        fail('Pod::Extractor::run() fails when multiple root folders are used');
     }
 
     $remove_folder->($_) foreach(@$root);
@@ -134,7 +134,7 @@ my $remove_folder = sub {
     $create_files->($root, $correct_files, '.pm');
     $create_files->($root, $invalid_files, '.h'); # should not be parsed since suffix is different
 
-    my $generator = Pod::Generator->new({
+    my $generator = Pod::Extractor->new({
         root => $root,
         target => $target,
     });
@@ -144,9 +144,9 @@ my $remove_folder = sub {
         $files_in_target->($target, '.html', $correct_files) &&
         !$files_in_target->($target, '.html', $invalid_files)
     ) {
-        pass('Pod::Generator::run() - only parses correct files');
+        pass('Pod::Extractor::run() - only parses correct files');
     } else {
-        fail('Pod::Generator::run() - parses wrong filetype!');
+        fail('Pod::Extractor::run() - parses wrong filetype!');
     }
 
     $remove_folder->($root);
@@ -160,11 +160,11 @@ my $remove_folder = sub {
     my $files = [qw(A B C)];
     $create_files->($root, $files);
 
-    no Pod::Generator;
+    no Pod::Extractor;
 
-    use Pod::Generator qw(:PARSER_TAGS);
+    use Pod::Extractor qw(:PARSER_TAGS);
     
-    my $generator = Pod::Generator->new({
+    my $generator = Pod::Extractor->new({
         root => $root,
         target => $target,
         parser => sub {
@@ -172,7 +172,7 @@ my $remove_folder = sub {
             my $content = $_[PARSER_FILE_CONTENT];
 
             if (!-f $file || (!defined $content) || ref($content) ne 'ARRAY') {
-                fail("Pod::Generator::run() - parser tags are wrong!");
+                fail("Pod::Extractor::run() - parser tags are wrong!");
             }
             return($content, '.html');
         }
@@ -180,7 +180,7 @@ my $remove_folder = sub {
 
     my ($ok, $err) = $generator->run();
 
-    pass("Pod::Generator::run() - parser tags work");
+    pass("Pod::Extractor::run() - parser tags work");
 }
 
 
