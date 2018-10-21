@@ -6,7 +6,7 @@ There has been almost zero testing so far!
 
 # NAME
 
-Pod::Generator - A Module to extract Pod Documentation from Perl sourcecode.
+Pod::Extractor - A Module to extract Pod Documentation from Perl sourcecode.
 
 # VERSION
 
@@ -14,8 +14,8 @@ Version 0.52
 
 # SYNOPSIS
 
-    use Pod::Generator;
-    my $podder = Pod::Generator->new({
+    use Pod::Extractor;
+    my $podder = Pod::Extractor->new({
         root => 'lib',
         target => 'docs',
     });
@@ -33,10 +33,10 @@ You give it a entry point on your filesystem and it will extract and parse all P
 
 ### `new($class, $args)`
 
-Function to initalize a `Pod::Generator` instance.
+Function to initalize a `Pod::Extractor` instance.
 `$args` is a hash reference. You can specify every Attribute right here or use the appropriate setter afterwards.
 
-    my $generator = Pod::Generator->new({
+    my $generator = Pod::Extractor->new({
         root => './lib',    # the directory in which the search should begin
                 # root => [qw( libA libB )], # root can also be an array reference
         target => 'docs',   # the directory in which the parsed Documents should be stored
@@ -106,12 +106,12 @@ The used default is [Pod::Simple::HTML](https://metacpan.org/pod/Pod::Simple::HT
 
 ### `Parser Tags`
 
-Since [Pod::Generator](https://metacpan.org/pod/Pod::Generator) gives you multiple values for your parsing you can choose which to use via Parser Tags.
+Since [Pod::Extractor](https://metacpan.org/pod/Pod::Extractor) gives you multiple values for your parsing you can choose which to use via Parser Tags.
 Maybe you only want the Filecontent and not its Path.
 
-        use Pod::Generator qw(:PARSER_TAGS); # import Parser tags into namespace
+        use Pod::Extractor qw(:PARSER_TAGS); # import Parser tags into namespace
 
-        my $generator = Pod::Generator->new({
+        my $generator = Pod::Extractor->new({
                 root => 'lib',
                 target => 'docs',
                 parser => sub {
