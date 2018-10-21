@@ -244,6 +244,8 @@ sub run {
 		}
 
 		my ($content, $filetype) = $self->parser()->($file, $fileContent);
+		next unless $content;
+		
 		$filetype = '' unless (defined $filetype);
 
 		my ($name, $path, $suffix) = fileparse($file);
