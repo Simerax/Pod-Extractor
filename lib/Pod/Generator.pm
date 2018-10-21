@@ -10,7 +10,7 @@ use strict;
 use File::Basename;
 use File::Path;
 use File::Find::Rule;
-use Carp qw (carp);
+use Carp qw (carp croak);
 
 my $ret = sub {
 	return wantarray? @_ : shift;
@@ -22,12 +22,12 @@ sub new {
 	my $self = {};
 	bless $self, $class;
 
-    $self->root($args->{'root'}) if (defined $args->{'root'});
-    $self->parser($args->{'parser'}) if (defined $args->{'parser'});
-    $self->target($args->{'target'}) if (defined $args->{'target'});
-    $self->overwrite($args->{'overwrite'}) if (defined $args->{'overwrite'});
+	$self->root($args->{'root'}) if (defined $args->{'root'});
+	$self->parser($args->{'parser'}) if (defined $args->{'parser'});
+	$self->target($args->{'target'}) if (defined $args->{'target'});
+	$self->overwrite($args->{'overwrite'}) if (defined $args->{'overwrite'});
 
-    return $self;
+	return $self;
 }
 
 
@@ -47,15 +47,15 @@ sub target {
 	$self->{'target'};
 }
 
-sub overwrite {
-    my $self = shift;
-    if (@_) {
-        $self->{'overwrite'} = shift;
-    }
-    $self->{'overwrite'} = 0 unless (defined $self->{'overwrite'});
-    $self->{'overwrite'};
-}
 
+sub overwrite {
+	my $self = shift;
+	if (@_) {
+		$self->{'overwrite'} = shift;
+	}
+	$self->{'overwrite'} = 0 unless (defined $self->{'overwrite'});
+	$self->{'overwrite'};
+}
 
 
 sub parser {
@@ -78,7 +78,6 @@ sub parser {
 }
 
 
-
 sub _default_parser {
 	my ($self) = @_;
 
@@ -95,40 +94,38 @@ sub _default_parser {
 }
 
 
-
 sub run {
 	my ($self) = @_;
 
-    return $ret->(0, 'No Root specified') unless defined $self->root();
-	return $ret->(0, 'Root Folder does not exist') unless(-d $self->root());
+	my ($ok, $err, $files) = $self->_find_files();
+	if (!$ok) {
+		return $ret->(0, $err);
+	}
+
 	$self->target('./docs') unless (defined $self->target());
 
-
-	my @files = File::Find::Rule->file()->name('*.pm', '*.pl')->canonpath()->in($self->root());
-
-
-	foreach(@files) {
+	foreach(@$files) {
 		my ($content, $filetype) = $self->parser()->($_);
 		$filetype = '' unless (defined $filetype);
 
 		my ($name, $path, $suffix) = fileparse($_);
 		$name = _get_basename($name) unless $suffix; # fileparse doesnt really get the right basname (suffix is still present)
 
-        my $root = $self->root();
-        $path =~ s/^\Q$root\E//;
+		my $root = $self->root();
+		$path =~ s/^\Q$root\E//;
 
 		my $target_dir = $self->target().$path;
 		my $target_file = $target_dir.'/'.$name.$filetype;
 
 		next if (-f $target_file && !$self->overwrite());
 
-        if (!-d $target_dir) {
-            my ($ok, $err) = $self->_create_dir($target_dir) unless (-d $target_dir);
-            if (!$ok) {
-                carp $err;
-                next;
-            }
-        }
+		if (!-d $target_dir) {
+			my ($ok, $err) = $self->_create_dir($target_dir) unless (-d $target_dir);
+			if (!$ok) {
+				carp $err;
+				next;
+			}
+		}
 
 		my ($ok, $err) = $self->_write_file($target_file, $content);
 		if (!$ok) {
@@ -138,6 +135,41 @@ sub run {
 
 	}
 	$ret->(1, '');
+}
+
+
+# _find_files
+#	returns a list of all files found in $self->root()
+#
+# Returns 0 on failure and 1 on success
+# in list context it also gives you an error message and the files it found.
+# So basically you should never call it in scalar context ;)
+#
+#	my ($ok, $err, $files) = $self->_find_files();
+#	if ($ok) {
+#		print "FOUND: $_\n" foreach(@$files);
+#	}
+#
+#
+sub _find_files {
+	my ($self) = @_;
+
+	my ($ok, $err, $type) = $self->_check_root();
+	return $ret->(0, $err, undef) if (!$ok);
+
+	my $finder = File::Find::Rule->new();
+	$finder->file()->name('*.pm', '*.pl')->canonpath();
+
+	my @files;
+	if ($type eq '') {
+		@files = $finder->in($self->root());
+	}
+	elsif ($type eq 'ARRAY') {
+		@files = $finder->in(@{$self->root()});
+	} else { # since we do _check_root() we should never get here but oh well you never know
+		croak "Type '$type' not supported as root folder!";
+	}
+	return $ret->(1, '', \@files);
 }
 
 # _create_dir
@@ -188,6 +220,45 @@ sub _write_file {
 }
 
 
+# _check_root
+#	Checks the type of $self->root()
+#
+# Returns 0 on failure and 1 on success
+# in list context it also gives you an error message and the type of root
+#
+# 	my ($ok, $err, $type) = $self->_check_root();
+# 	if ($ok && $type eq 'ARRAY') {
+#		print "root is an array reference!";
+#	} 
+#
+sub _check_root {
+	my ($self) = @_;
+
+	my $check = sub {
+		my $f = shift;
+		if (!-d $f) {
+			carp "Root Folder '$f' does not exist!";
+		}
+	};
+
+	return $ret->(0, 'Root not specified') unless defined $self->root();
+
+	my $type = ref($self->root());
+
+	if ($type eq '') {
+		$check->($self->root());
+		return $ret->(1, '', $type);
+	}elsif ($type eq 'ARRAY') {
+		$check->($_) foreach(@{$self->root()});
+		return $ret->(1, '', $type);
+	} else {
+		my $err = "Type $type is not supported as 'root' directory!";
+		carp $err;
+		return $ret->(0, $err, undef);
+	}
+}
+
+
 =head1 NAME
 
 Pod::Generator - A Module to extract Pod Documentation from Perl sourcecode.
@@ -223,6 +294,7 @@ C<$args> is a hash reference. You can specify every Attribute right here or use 
 
     my $generator = Pod::Generator->new({
         root => './lib',    # the directory in which the search should begin
+		# root => [qw( libA libB )], # root can also be an array reference
         target => 'docs',   # the directory in which the parsed Documents should be stored
         overwrite => 1,     # Overwrite file in 'target' if it already exist. Will default to 0 if not given
         parser => sub {     # give it a custom Parser. You dont need to do this, the default parsing is done with Pod::Simple::HTML
@@ -264,7 +336,7 @@ Default is 0 (false).
 
 Every true Value is considered C<overwrite == true>
 
-=head3 C<parser>
+=head3 C<parser($self, $parser)>
 
 Method to set/get the Parser for the Pod Extraction.
 Expects a Code Reference.
