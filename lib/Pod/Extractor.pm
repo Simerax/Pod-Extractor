@@ -298,7 +298,7 @@ sub _find_files {
 	return ret(0, $err, undef) if (!$ok);
 
 	my $finder = File::Find::Rule->new();
-	$finder->file()->name('*.pm', '*.pl')->canonpath();
+	$finder->file()->name('*.pod','*.pm', '*.pl')->canonpath();
 
 	my @files;
 	if ($type eq '') {
