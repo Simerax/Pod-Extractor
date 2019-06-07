@@ -100,7 +100,7 @@ sub new {
 	$self->root($args->{'root'}) if (defined $args->{'root'});
 	$self->parser($args->{'parser'}) if (defined $args->{'parser'});
 	$self->target($args->{'target'}) if (defined $args->{'target'});
-	$self->overwrite($args->{'overwrite'}) if (defined $args->{'overwrite'});
+	$self->overwrite($args->{'overwrite'} || 1);
 
 	return $self;
 }
@@ -139,7 +139,7 @@ sub target {
 
 Method to set/get the overwrite Attribute.
 This will cause the Extraction to overwrite files in C<target> if they exist.
-Default is 0 (false).
+Default is 1 (true).
 
 Every true Value is considered C<overwrite == true>
 
@@ -151,7 +151,6 @@ sub overwrite {
 	if (@_) {
 		$self->{'overwrite'} = shift;
 	}
-	$self->{'overwrite'} = 0 unless (defined $self->{'overwrite'});
 	$self->{'overwrite'};
 }
 

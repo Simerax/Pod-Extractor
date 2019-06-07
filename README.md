@@ -40,7 +40,7 @@ Function to initalize a `Pod::Extractor` instance.
         root => './lib',    # the directory in which the search should begin
                 # root => [qw( libA libB )], # root can also be an array reference
         target => 'docs',   # the directory in which the parsed Documents should be stored
-        overwrite => 1,     # Overwrite file in 'target' if it already exist. Will default to 0 if not given
+        overwrite => 0,     # Overwrite file in 'target' if it already exist. Will default to 1 if not given
         parser => sub {     # give it a custom Parser. You dont need to do this, the default parsing is done with Pod::Simple::HTML
             my ($file) = @_;
 
